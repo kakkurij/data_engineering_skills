@@ -1,0 +1,106 @@
+name: Skill Test Suite
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+# Cancel in-flight runs on the same branch when a new push arrives
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────────────
+  # Static assertions — one job per skill. Required to pass.
+  # ─────────────────────────────────────────────────────────────────
+  static:
+    name: "Phase 2A — ${{ matrix.skill }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        skill: [spec-driven-sw, spec-driven-data]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run static assertions
+        run: PYTHONUTF8=1 python tests/${{ matrix.skill }}/phase2a/run_assertions.py
+
+  # ─────────────────────────────────────────────────────────────────
+  # Generation quality — spec-driven-sw fixtures.
+  # Fixtures are generated in Claude Code (tests/spec-driven-sw/phase2c/KICKOFF.md)
+  # and committed after significant skill changes.
+  # ─────────────────────────────────────────────────────────────────
+  phase2c-sw:
+    name: "Phase 2C — spec-driven-sw generation quality"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check fixture availability
+        id: fixtures
+        run: |
+          DIR="tests/spec-driven-sw/phase2c"
+          ALL_PRESENT=true
+          for f in "$DIR/flow_a/requirements.md" "$DIR/flow_b/requirements.md" "$DIR/flow_c/CLAUDE.md"; do
+            if [ ! -f "$f" ]; then
+              echo "::warning file=$f::Phase 2C fixture missing: $f"
+              ALL_PRESENT=false
+            fi
+          done
+          echo "present=$ALL_PRESENT" >> "$GITHUB_OUTPUT"
+
+      - name: Run generation quality checks
+        if: steps.fixtures.outputs.present == 'true'
+        run: PYTHONUTF8=1 python tests/spec-driven-sw/phase2c/check_outputs.py
+
+      - name: Skip notice (fixtures not committed)
+        if: steps.fixtures.outputs.present == 'false'
+        run: echo "Phase 2C skipped — run tests/spec-driven-sw/phase2c/KICKOFF.md in Claude Code and commit the fixtures."
+
+  # ─────────────────────────────────────────────────────────────────
+  # SUMMARY JOB — reference this one in branch protection rules.
+  # Behavioral tests (Phase 2B) need a live Claude session and stay manual:
+  # tests/spec-driven-sw/phase2b/KICKOFF.md
+  # ─────────────────────────────────────────────────────────────────
+  all-checks:
+    name: "All checks"
+    runs-on: ubuntu-latest
+    needs: [static, phase2c-sw]
+    if: always()
+
+    steps:
+      - name: Evaluate results
+        env:
+          STATIC: ${{ needs.static.result }}
+          PHASE2C: ${{ needs.phase2c-sw.result }}
+        run: |
+          echo "Phase 2A (both skills): $STATIC"
+          echo "Phase 2C (spec-driven-sw): $PHASE2C"
+          if [ "$STATIC" != "success" ]; then
+            echo "FAIL: static assertions did not pass."
+            exit 1
+          fi
+          if [ "$PHASE2C" = "failure" ]; then
+            echo "FAIL: Phase 2C fixtures are present but checks failed."
+            exit 1
+          fi
+          echo "All automated checks passed."

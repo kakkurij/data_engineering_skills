@@ -1,0 +1,15 @@
+{
+  "name": "data-engineering-skills",
+  "description": "Spec-driven development skills for data engineering.",
+  "owner": {
+    "name": "Joonas Kakkuri",
+    "url": "https://github.com/kakkurij"
+  },
+  "plugins": [
+    {
+      "name": "data-engineering-skills",
+      "source": "./",
+      "description": "spec-driven-data (data products on dlt + dbt + DuckDB) and spec-driven-sw (platform software: runner, orchestrator, API, React UI, WASM)."
+    }
+  ]
+}

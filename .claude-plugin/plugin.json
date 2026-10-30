@@ -1,0 +1,12 @@
+{
+  "name": "data-engineering-skills",
+  "version": "1.0.0",
+  "description": "Spec-driven development skills for a dlt + dbt + DuckDB data platform: spec-driven-data for data products, spec-driven-sw for platform software.",
+  "author": {
+    "name": "Joonas Kakkuri",
+    "url": "https://github.com/kakkurij"
+  },
+  "repository": "https://github.com/kakkurij/data_engineering_skills",
+  "license": "MIT",
+  "keywords": ["spec-driven-development", "dbt", "dlt", "duckdb", "data-platform"]
+}
